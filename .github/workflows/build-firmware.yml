@@ -62,4 +62,3 @@ jobs:
               summary.write('Download **ESP32-Firmware-' + os.environ['GITHUB_RUN_NUMBER'] + '** from Artifacts below.\n\n')
               summary.write('Extract the downloaded artifact ZIP once, then import **' + packages[0].name + '** in the flashing app.\n')
           PY
-
