@@ -20,20 +20,28 @@ jobs:
       FIRMWARE_VERSION: ${{ inputs.firmware_version }}
     steps:
       - name: Get firmware source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Install saved Arduino CLI version
-        uses: arduino/setup-arduino-cli@v2
-        with:
-          version: '1.3.1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cli_bin="$RUNNER_TEMP/arduino-cli-bin"
+          mkdir -p "$cli_bin"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh \
+            -o "$RUNNER_TEMP/install-arduino-cli.sh"
+          BINDIR="$cli_bin" sh "$RUNNER_TEMP/install-arduino-cli.sh" 1.3.1
+          echo "$cli_bin" >> "$GITHUB_PATH"
+          "$cli_bin/arduino-cli" version
 
       - name: Restore downloaded tools and libraries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .toolchain
           key: esp32-toolchain-${{ runner.os }}-${{ hashFiles('toolchain.json') }}
@@ -42,7 +50,7 @@ jobs:
         run: python build_all.py --setup --version "$FIRMWARE_VERSION"
 
       - name: Upload the firmware ZIP
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ESP32-Firmware-${{ github.run_number }}
           path: |
