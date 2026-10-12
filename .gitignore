@@ -1,0 +1,9 @@
+.build/
+.toolchain/
+dist/
+firmware/
+__pycache__/
+*.pyc
+private_config.json
+backups/
+logs/
