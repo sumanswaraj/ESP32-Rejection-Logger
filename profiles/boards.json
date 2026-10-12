@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "esp32-generic",
+      "number": 1,
+      "chip": "esp32",
+      "board": "esp32",
+      "label": "ESP32 / WROOM / WROVER",
+      "default": true,
+      "keypad": true,
+      "rows": [
+        18,
+        19,
+        21,
+        22
+      ],
+      "cols": [
+        23,
+        25,
+        26,
+        27
+      ],
+      "touch_scl": 32,
+      "touch_sdo": 33,
+      "buzzer": 13,
+      "led_wifi": -1,
+      "led_error": 14,
+      "led_ack": -1,
+      "led_quantity": -1,
+      "led_pending": -1,
+      "setup": 0,
+      "notes": "Both inputs; buzzer and error LED. GPIO16/17 are left free for WROVER PSRAM. Other LEDs disabled. Rewire to this map."
+    },
+    {
+      "id": "esp32s2-generic",
+      "number": 2,
+      "chip": "esp32s2",
+      "board": "esp32s2",
+      "label": "ESP32-S2",
+      "default": true,
+      "keypad": true,
+      "rows": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "cols": [
+        15,
+        16,
+        17,
+        18
+      ],
+      "touch_scl": 8,
+      "touch_sdo": 9,
+      "buzzer": 10,
+      "led_wifi": 11,
+      "led_error": 12,
+      "led_ack": 13,
+      "led_quantity": 14,
+      "led_pending": 21,
+      "setup": 0,
+      "notes": "Both inputs and all feedback outputs. GPIO19/20 left free for native USB. Check which pins your specific board exposes."
+    },
+    {
+      "id": "esp32s3-existing",
+      "number": 3,
+      "chip": "esp32s3",
+      "board": "esp32s3",
+      "label": "ESP32-S3 (existing logger wiring)",
+      "default": true,
+      "keypad": true,
+      "rows": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "cols": [
+        15,
+        16,
+        17,
+        18
+      ],
+      "touch_scl": 8,
+      "touch_sdo": 9,
+      "buzzer": 10,
+      "led_wifi": 11,
+      "led_error": 12,
+      "led_ack": 13,
+      "led_quantity": 14,
+      "led_pending": 21,
+      "setup": 0,
+      "notes": "Preserves your original S3 wiring, including the 16 MB / 8 MB PSRAM board. GPIO19/20 and memory pins are unused."
+    },
+    {
+      "id": "esp32c3-keypad",
+      "number": 4,
+      "chip": "esp32c3",
+      "board": "esp32c3",
+      "label": "ESP32-C3 (keypad only)",
+      "default": true,
+      "keypad": true,
+      "rows": [
+        0,
+        1,
+        3,
+        4
+      ],
+      "cols": [
+        5,
+        6,
+        7,
+        10
+      ],
+      "touch_scl": -1,
+      "touch_sdo": -1,
+      "buzzer": -1,
+      "led_wifi": -1,
+      "led_error": -1,
+      "led_ack": -1,
+      "led_quantity": -1,
+      "led_pending": -1,
+      "setup": 9,
+      "notes": "Keypad only; touch panel, buzzer and LEDs disabled. USB18/19 and UART20/21 remain free. Both inputs together need an I/O expansion design, not included here."
+    },
+    {
+      "id": "esp32c3-touch",
+      "number": 5,
+      "chip": "esp32c3",
+      "board": "esp32c3",
+      "label": "ESP32-C3 (touch only)",
+      "default": false,
+      "keypad": false,
+      "rows": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "cols": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "touch_scl": 0,
+      "touch_sdo": 1,
+      "buzzer": 3,
+      "led_wifi": 5,
+      "led_error": 6,
+      "led_ack": 4,
+      "led_quantity": 7,
+      "led_pending": 10,
+      "setup": 9,
+      "notes": "SCL/SDO touch panel plus feedback. Physical matrix keypad disabled. USB18/19 and UART20/21 remain free."
+    },
+    {
+      "id": "esp32c6-generic",
+      "number": 6,
+      "chip": "esp32c6",
+      "board": "esp32c6",
+      "label": "ESP32-C6",
+      "default": true,
+      "keypad": true,
+      "rows": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "cols": [
+        6,
+        7,
+        18,
+        19
+      ],
+      "touch_scl": 20,
+      "touch_sdo": 21,
+      "buzzer": 22,
+      "led_wifi": -1,
+      "led_error": 23,
+      "led_ack": -1,
+      "led_quantity": -1,
+      "led_pending": -1,
+      "setup": 9,
+      "notes": "Both inputs; buzzer and error LED. USB12/13, UART16/17, flash and strapping pins remain free. Compatible with external-flash and in-package-flash variants exposing these GPIOs."
+    }
+  ]
+}
