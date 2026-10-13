@@ -111,6 +111,40 @@ class BackendTests(unittest.TestCase):
             self.assertTrue(response["ok"])
             self.assertEqual(configure.call_args.kwargs["network"], {"password": "", "api_key": ""})
 
+    def test_logger_id_only_request_is_forwarded(self):
+        with patch.object(backend.qc_core, "configure", return_value={"ok": True}) as configure:
+            response = backend.handle({"operation": "configure", "port": "COM3", "device_id": "PACKING_01"})
+        self.assertTrue(response["ok"])
+        configure.assert_called_once_with("COM3", network=None, pins=None, touch_active_low=None, device_id="PACKING_01")
+
+    def test_omitted_logger_id_is_not_forwarded(self):
+        with patch.object(backend.qc_core, "configure", return_value={}) as configure:
+            response = backend.handle({"operation": "configure", "port": "COM3", "network": {"name": "Packing"}})
+        self.assertTrue(response["ok"])
+        configure.assert_called_once_with("COM3", network={"name": "Packing"}, pins=None, touch_active_low=None)
+
+    def test_logger_id_and_network_remain_separate_fields(self):
+        with patch.object(backend.qc_core, "configure", return_value={}) as configure:
+            response = backend.handle({"operation": "configure", "port": "COM3", "device_id": "PACKING_01",
+                                       "network": {"name": "Packing", "ssid": "Factory"}})
+        self.assertTrue(response["ok"])
+        self.assertEqual(configure.call_args.kwargs["device_id"], "PACKING_01")
+        self.assertEqual(configure.call_args.kwargs["network"], {"name": "Packing", "ssid": "Factory"})
+
+    def test_invalid_logger_id_types_and_characters_do_not_touch_hardware(self):
+        with patch.object(backend.qc_core, "read_device") as read, \
+             patch.object(backend.qc_core, "serial_request") as serial, \
+             patch.object(backend.qc_core, "configure") as configure:
+            for value in (None, 0, 1, False, True, [], {}, "", "a" * 81, "with space", "é", "x\n"):
+                with self.subTest(value=value):
+                    response = backend.handle({"operation": "configure", "port": "COM3", "device_id": value,
+                                               "profile": "esp32s3-existing"})
+                    self.assertFalse(response["ok"])
+                    self.assertIn("Logger ID", response["error"])
+            read.assert_not_called()
+            serial.assert_not_called()
+            configure.assert_not_called()
+
     def test_wrong_chip_gpio_profile_is_rejected(self):
         with patch.object(backend.qc_core, "read_device", return_value={"chip": "esp32c3"}), \
              patch.object(backend.qc_core, "configure") as configure:

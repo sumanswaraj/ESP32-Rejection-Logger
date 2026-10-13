@@ -448,19 +448,47 @@ def serial_request(port, command, payload=None, timeout=18, *, native_usb=None, 
 def read_device(port, *, native_usb=None, reset=False):
     return serial_request(port, "info", native_usb=native_usb, reset=reset)["device"]
 
-def configure(port, network=None, pins=None, touch_active_low=None):
+def validate_device_id(device_id):
+    if not isinstance(device_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", device_id):
+        raise QCError("Logger ID must contain 1–80 ASCII letters, numbers, underscores or hyphens")
+    return device_id
+
+def configure(port, network=None, pins=None, touch_active_low=None, device_id=None):
+    if device_id is not None:
+        validate_device_id(device_id)
+    device = None
+    def current_device():
+        nonlocal device
+        if device is None:
+            device = read_device(port)
+        return device
+
     payload = {}
     if network:
         validate_network(network)
         payload["network"] = network
     if pins is not None:
-        device = read_device(port)
-        validate_pins(device["chip"], pins)
+        validate_pins(current_device()["chip"], pins)
         payload["pins"] = pins
+    if device_id is not None:
+        info = current_device()
+        if not isinstance(info.get("device_id"), str):
+            raise QCError("Device did not return its Logger ID; read settings again before editing it")
+        if device_id != info["device_id"]:
+            if info.get("logger_id_edit_supported") is not True:
+                raise QCError("This firmware cannot edit Logger ID over USB; upgrade the firmware first")
+            sequence, pending = info.get("sequence"), info.get("pending_events")
+            if type(sequence) is not int or sequence < 0 or type(pending) is not int or pending < 0:
+                raise QCError("Capture history is unavailable or invalid; Logger ID cannot be changed")
+            if sequence > 0 or pending > 0 or info.get("identity_locked") is True:
+                raise QCError("Logger ID is locked after capture; change the display name instead")
+            payload["device_id"] = device_id
     if touch_active_low is not None:
         if not payload:
-            payload["pins"] = read_device(port)["pins"]
+            payload["pins"] = current_device()["pins"]
         payload["touch_active_low"] = bool(touch_active_low)
     if not payload:
-        raise QCError("Enter network settings or select Apply GPIO map")
+        if device_id is not None:
+            return {"ok": True, "message": "Logger ID is unchanged", "device": device}
+        raise QCError("Enter network settings, a Logger ID or select Apply GPIO map")
     return serial_request(port, "configure", payload)

@@ -21,8 +21,9 @@ No Arduino IDE, compiler or separate Python installation is needed to flash.
 6. Click **Read device settings**. Save its Wi-Fi name/password, your existing
    deployed Apps Script `/exec` server URL, and API key. Blank password and API
    key fields keep the stored values. Read settings again after reboot to verify.
-7. For a fresh logger, register the displayed Logger ID in your existing Shop
-   Floor Control system. Initialize empty storage only when the app offers the
+7. For a fresh logger, set its **Logger ID** before capturing the first event,
+   then register that exact ID in your existing Shop Floor Control system.
+   Initialize empty storage only when the app offers the
    guarded action for a logger with no captured or pending events.
 8. Click **Close app** when finished, then close the browser tab.
 
@@ -33,17 +34,31 @@ confirmed layout change; existing data can become inaccessible afterward.
 Leave the GPIO mapping unchanged unless your physical wiring matches the
 selected board profile. Use a board-maker USB driver if Windows shows no port.
 
+**Logger ID** identifies the device in Shop Floor Control and must match its
+existing registration and QR assignment. It accepts 1–80 ASCII letters, digits,
+underscores or hyphens. Read device settings first; current firmware permits an
+ID change only while both the captured event sequence and pending event count
+are zero. Once an event has been captured or queued, the ID stays locked even
+after the queue is empty. Older firmware shows a read-only ID until upgraded.
+Changing only the ID does not require re-entering Wi-Fi or server settings.
+
+**Display name** is the logger's human-readable label. It remains editable after
+the ID is locked and does not change the device's registration. Register the
+chosen ID through your existing Shop Floor Control workflow; the flasher does
+not change the server, Google Sheet or QR registration for you.
+
 This app does not edit the Google Sheet or change its Apps Script deployment.
 It uses the existing firmware and existing server URL. The original Shop Floor
 Control login, QR assignment and Sheet workflow still require review of the
 bound Apps Script; this flasher does not establish that those features are
 complete or tested.
 
-All 15 firmware bundles were validated, and 20 Python/HTTP adapter tests passed.
-The EXE was cross-compiled for Windows x64. It has not yet been executed on a
-Windows PC or used with a physical ESP32 here; browser interaction testing was
-unavailable. JavaScript syntax checks passed. A Windows build/startup workflow
-provides additional validation without substituting for a real USB flash test.
+All 15 firmware bundles must pass image and source validation before packaging.
+Automated tests cover serial transport, Logger ID changes, firmware persistence
+and the desktop bridge. The Windows build workflow executes the packaged EXE
+and embedded Python. Each download includes its execution results in
+`app-build-info.json` and its native smoke report when available. A physical USB
+flash and browser interaction still require verification on the connected PC.
 
 Run [Build and test Windows flasher](../../actions/workflows/build-windows-flasher.yml) in Actions to build and test the actual Windows executable.
 

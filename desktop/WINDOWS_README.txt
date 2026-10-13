@@ -9,14 +9,27 @@ For Windows 10 or 11, 64-bit. This EXE cannot run on a phone.
 5. Wait for verification. Release BOOT; press RESET if necessary.
 6. Read device settings. Save the Wi-Fi name/password, existing Apps Script
    /exec server URL, and API key. Blank password/API key fields keep stored values.
-7. Read settings again after reboot to check them. Register the displayed Logger
-   ID in the existing Shop Floor Control system if this is a new device.
+7. On a fresh logger, set Logger ID before its first captured event. Read settings
+   again after reboot and register that exact ID in the existing Shop Floor
+   Control system. It must match the existing registration and QR assignment.
 8. On a fresh unformatted logger, review the Initialize empty storage action
    when offered. It refuses devices with capture history or pending events.
 9. Click Close app when finished, then close the browser tab.
 
 No Arduino IDE, Python installation, compiler, or internet download is required
 for flashing. The existing deployed server is required to send rejection events.
+
+LOGGER ID AND DISPLAY NAME
+Logger ID identifies the device in Shop Floor Control. Use 1-80 ASCII letters,
+digits, underscores or hyphens. Current firmware allows changes only before
+capture, with both event sequence and pending event count at zero. Once any
+event is captured or queued, Logger ID stays locked even after the queue empties.
+Older firmware displays a read-only ID until upgraded. An ID-only save keeps
+the existing Wi-Fi credentials, server URL and API key.
+Display name is the readable label and remains editable after Logger ID locks.
+Changing the display name does not change the registered ID. This utility does
+not edit the server, Google Sheet or QR registration; register the chosen ID
+through the existing Shop Floor Control workflow.
 
 NORMAL UPGRADE
 The existing project's flashing core validates chip, flash capacity, image
@@ -31,8 +44,8 @@ SUPPORTED HARDWARE
 ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6. Includes 4/8/16 MB layouts.
 The utility detects physical capacity. Octal flash is not supported by this build.
 GPIO profiles must match actual wiring; leave the map unchanged unless needed.
-The compiled firmware is version 2.1.0-multiboard-pilot from your unchanged
-source commit 740eb1c55a86e38200005f63a23681766942bd1b.
+The compiled firmware is version 2.1.1-logger-id. Its exact source commit and
+source fingerprints are included in firmware-build-info.json.
 
 IF THE BOARD DOES NOT CONNECT
 Use Refresh after reconnecting. Close Arduino Serial Monitor or other serial
@@ -54,9 +67,9 @@ the boot output at 115200 baud. Do not include setup passwords when sharing it.
 A settings timeout alone does not justify erasing or formatting storage.
 
 VALIDATION LIMITS
-All 15 real CI-built firmware bundles pass the original validator. The Python
-serial transport, Python bridge and HTTP adapter pass 39 tests without a connected ESP32. Browser controls
-pass a JavaScript syntax check; browser interaction testing was unavailable here.
+All 15 firmware bundles must pass the original validator before packaging.
+Automated tests cover serial transport, Logger ID changes and the desktop bridge
+without a connected ESP32. Browser controls pass a JavaScript syntax check.
 The Windows build workflow executes the packaged EXE and bundled Python helper.
 See app-build-info.json and the included smoke report for the execution checks
 performed on your specific download. Hardware communication is not exercised

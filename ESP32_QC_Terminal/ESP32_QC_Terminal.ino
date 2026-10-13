@@ -42,9 +42,9 @@ void setup(){
     settings.pins.toJson(d["pins"].to<JsonObject>());
     d["device_id"]=settings.deviceId;d["name"]=settings.name;
     d["ssid"]=settings.ssid;d["endpoint"]=settings.ingestUrl;d["touch"]=settings.touchEnabled;d["active_low"]=settings.touchActiveLow;
-    d["identity_locked"]=settings.sequence>0;d["csrf"]=portal.csrf;d["setup_unlocked"]=portal.unlocked();
+    d["logger_id_edit_supported"]=true;d["identity_locked"]=settings.sequence>0 || journal.length()>0;d["csrf"]=portal.csrf;d["setup_unlocked"]=portal.unlocked();
     d["wifi"]=WiFi.status()==WL_CONNECTED;d["ip"]=WiFi.localIP().toString();d["rssi"]=WiFi.RSSI();
-    d["pending_events"]=journal.length();d["storage_fault"]=journal.fault;d["ready"]=ready;
+    d["pending_events"]=journal.length();d["storage_fault"]=journal.fault;d["configuration_fault"]=settings.configurationFault;d["ready"]=ready;
     d["quantity"]=input.quantity;d["job_id"]=assignment.id;d["machine"]=assignment.machine;d["part"]=assignment.part;
     d["job_active"]=assignment.active;d["assignment_verified_this_boot"]=assignmentFresh;d["last_ack"]=lastAcknowledged;d["message"]=lastMessage;
     String body;serializeJson(d,body);portal.server.send(200,"application/json",body);
@@ -58,8 +58,7 @@ void setup(){
   portal.server.on("/cancel",HTTP_POST,[](){if(!portal.authorized(true))return;input.accepted();reply(200,"Quantity restored to 1.");});
   portal.server.on("/save",HTTP_POST,[](){if(!setupAllowed())return;
     String id=portal.server.arg("device_id"),url=portal.server.arg("endpoint"),ssid=portal.server.arg("ssid"),name=portal.server.arg("name");
-    if(id.isEmpty()||id.length()>80||ssid.isEmpty()||ssid.length()>32||name.isEmpty()||name.length()>60||!validEndpoint(url)){reply(400,"Check ID, name, SSID and HTTPS server URL.");return;}
-    for(char c:id)if(!(isalnum((unsigned char)c)||c=='_'||c=='-')){reply(400,"Logger ID: letters, numbers, underscore or hyphen only.");return;}
+    if(!DeviceSettings::validDeviceId(id)||ssid.isEmpty()||ssid.length()>32||name.isEmpty()||name.length()>60||!validEndpoint(url)){reply(400,"Check ID, name, SSID and HTTPS server URL. Logger ID: 1 to 80 ASCII letters, numbers, underscores or hyphens.");return;}
     if(id!=settings.deviceId && (settings.sequence || journal.length())){reply(409,"Logger ID is locked after capture. Change display name instead.");return;}
     String pw=portal.server.arg("password"),token=portal.server.arg("token"),ca=portal.server.arg("ca");
     if((pw.length() && pw.length()<8)||pw.length()>63||token.length()>200||ca.length()>2048){reply(400,"Invalid credential length.");return;}
@@ -67,11 +66,12 @@ void setup(){
     if(token.isEmpty()&&settings.token.isEmpty()){reply(400,"Enter the device API key from Config.");return;}
     PinConfig pins=settings.pins;pins.touch=portal.server.hasArg("touch");String pinError;
     if(!pins.validate(pinError)){reply(400,pinError);return;}
-    if(id!=settings.deviceId){if(!settings.prefs.putString("id",id)){reply(500,"ID save failed.");return;}settings.deviceId=id;settings.prefs.remove("assignment");}
-    settings.ssid=ssid;settings.name=name;settings.ingestUrl=url;settings.assignmentUrl="";settings.allowHttp=false;settings.legacyUnbound=false;
-    if(pw.length())settings.password=pw;if(token.length())settings.token=token;if(ca.length())settings.ca=ca;
-    settings.pins=pins;settings.touchEnabled=pins.touch;settings.touchActiveLow=portal.server.hasArg("active_low");
-    if(!settings.save()){ready=false;reply(500,"Settings save failed; capture paused.");return;}
+    JsonDocument draft;settings.toJson(draft);
+    draft["device_id"]=id;draft["ssid"]=ssid;draft["name"]=name;draft["ingest_url"]=url;
+    draft["assignment_url"]="";draft["allow_http"]=false;draft["legacy_unbound"]=false;
+    if(pw.length())draft["password"]=pw;if(token.length())draft["token"]=token;if(ca.length())draft["ca"]=ca;
+    pins.toJson(draft["pins"].to<JsonObject>());draft["touch_enabled"]=pins.touch;draft["touch_active_low"]=portal.server.hasArg("active_low");
+    if(!settings.saveConfig(draft)){ready=false;reply(500,"Settings save failed; capture paused.");return;}
     ready=false;reply(200,"Settings saved. Restarting. Setup password changes; read USB Serial.");restartAt=millis()+1500;
   });
   portal.server.on("/reset",HTTP_POST,[](){if(!setupAllowed())return;
@@ -88,7 +88,7 @@ void setup(){
     BOARD_PROFILE_NAME,ESP.getChipModel(),unsigned(ESP.getFlashChipSize()),unsigned(ESP.getPsramSize()),settings.pins.keypad,settings.pins.touch);
 }
 void capture(uint8_t code,const char* source){
-  if(!ready||journal.fault||input.editing||!assignmentFresh||!assignment.active){feedback.error();lastMessage="Capture blocked: configure device and start/verify dashboard job";return;}
+  if(!ready||settings.configurationFault||journal.fault||input.editing||!assignmentFresh||!assignment.active){feedback.error();lastMessage="Capture blocked: configure device and start/verify dashboard job";return;}
   uint64_t seq;if(!settings.nextSequence(seq)){ready=false;feedback.error();lastMessage="Persistent sequence save failed";return;}
   String id=settings.deviceId+"-"+settings.generation+"-"+String((unsigned long long)seq);
   JsonDocument d;d["schema_version"]=2;d["device_id"]=settings.deviceId;d["device_name"]=settings.name;
@@ -117,6 +117,7 @@ void loop(){
 #if ARDUINO_USB_CDC_ON_BOOT
   serialTick(Serial0,1);
 #endif
+  if(settings.configurationFault){ready=false;lastMessage="Configuration save failed; capture paused until restart";}
   portal.tick();uint32_t n=millis();if(restartAt && int32_t(n-restartAt)>=0)ESP.restart();
   if(settings.pins.setup>=0 && digitalRead(settings.pins.setup)==LOW){if(!held)held=n;if(!bootTriggered && n-held>=5000){portal.openWindow(settings.deviceId);bootTriggered=true;}}
   else {held=0;bootTriggered=false;}

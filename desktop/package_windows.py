@@ -67,7 +67,7 @@ def main() -> None:
     runtime = package / "runtime"
     if not (runtime / "Lib/site-packages/esptool").is_dir():
         raise RuntimeError("Install Windows-target esptool 5.1.0 and pyserial into runtime/Lib/site-packages first.")
-    info = json.loads((args.firmware_root / "build_info.json").read_text())
+    info = json.loads((args.firmware_root / "build_info.json").read_text(encoding="utf-8"))
     verify_firmware_source(info)
     source_commit = info["source_commit"]
     with zipfile.ZipFile(args.runtime_archive) as archive:
@@ -83,7 +83,7 @@ def main() -> None:
     paths = list(runtime.glob("python*._pth"))
     if len(paths) != 1:
         raise ValueError("Expected one embedded interpreter path file")
-    original = paths[0].read_text()
+    original = paths[0].read_text(encoding="utf-8")
     standard = next(line for line in original.splitlines() if line.endswith(".zip"))
     paths[0].write_text(f"{standard}\n.\nLib/site-packages\n..\n", encoding="utf-8")
     for name in ("qc_core.py", "qc_paths.py"):
@@ -120,7 +120,7 @@ def main() -> None:
         shutil.rmtree(folder)
     dependencies = {}
     for metadata in (runtime / "Lib/site-packages").glob("*.dist-info/METADATA"):
-        fields = dict(line.split(": ", 1) for line in metadata.read_text().splitlines() if line.startswith(("Name: ", "Version: ")))
+        fields = dict(line.split(": ", 1) for line in metadata.read_text(encoding="utf-8").splitlines() if line.startswith(("Name: ", "Version: ")))
         dependencies[fields["Name"]] = fields["Version"]
     app_source_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     app_info = {"source_repository": "https://github.com/sumanswaraj/ESP32-Rejection-Logger", "app_source_commit": app_source_commit, "firmware_source_commit": source_commit,

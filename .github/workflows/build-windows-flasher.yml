@@ -81,8 +81,10 @@ jobs:
         run: |
           python -m pip install pyserial==3.5
           if ($LASTEXITCODE -ne 0) { throw 'Serial transport dependency installation failed.' }
-          python -m unittest discover -s tests -v
+          python -m unittest discover -s tests -p test_serial_transport.py -v
           if ($LASTEXITCODE -ne 0) { throw 'Serial transport tests failed.' }
+          python -m unittest discover -s tests -p test_logger_identity.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Logger identity tests failed.' }
           python -m unittest discover -s desktop -p test_backend.py -v
           if ($LASTEXITCODE -ne 0) { throw 'Python bridge tests failed.' }
           Push-Location desktop

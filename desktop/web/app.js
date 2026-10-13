@@ -116,6 +116,15 @@
   function storageEligible() {
     return Boolean(state.info && state.infoPort === port() && state.info.storage_fault === true && state.info.sequence === 0 && state.info.pending_events === 0);
   }
+  function loggerIdLockReason(device) {
+    if (!device || device.logger_id_edit_supported !== true) return "This firmware cannot edit the Logger ID. Install current firmware, then read settings again.";
+    if (![device.sequence, device.pending_events].every((count) => Number.isSafeInteger(count) && count >= 0)) return "Logger ID is read-only because the event history could not be verified. Read settings again before changing it.";
+    if (device.identity_locked === true || device.sequence > 0 || device.pending_events > 0) return "Logger ID is locked because this logger has captured or queued events. You can still change its display name.";
+    return "Choose the Logger ID before the first event is captured. Use 1–80 letters, digits, underscores or hyphens. The firmware verifies that the ID can still be changed when saving.";
+  }
+  function loggerIdEditable(device) {
+    return Boolean(device && device.logger_id_edit_supported === true && device.identity_locked !== true && [device.sequence, device.pending_events].every((count) => Number.isSafeInteger(count) && count === 0));
+  }
   function addDetail(label, value) {
     const group = document.createElement("div"), dt = document.createElement("dt"), dd = document.createElement("dd");
     dt.textContent = label; dd.textContent = value == null ? "—" : String(value);
@@ -134,6 +143,9 @@
     state.infoPort = port();
     $("device-settings").hidden = false;
     text("device-id", device.device_id);
+    $("logger-id").value = device.device_id || "";
+    $("logger-id").readOnly = !loggerIdEditable(device);
+    text("logger-id-help", loggerIdLockReason(device));
     $("name").value = device.name || "";
     $("ssid").value = device.ssid || "";
     $("endpoint").value = device.endpoint || "";
@@ -186,7 +198,12 @@
   }
   async function saveSettings() {
     const network = networkChanges(), profile = $("profile").value;
-    if (!Object.keys(network).length && !profile) { status("No settings have changed."); return; }
+    const deviceId = $("logger-id").value, idChanged = deviceId !== (state.info.device_id || "");
+    if (!Object.keys(network).length && !profile && !idChanged) { status("No settings have changed."); return; }
+    if (idChanged) {
+      if (!loggerIdEditable(state.info)) throw new Error(loggerIdLockReason(state.info));
+      if (deviceId.length < 1 || deviceId.length > 80 || /[^A-Za-z0-9_-]/.test(deviceId)) throw new Error("Logger ID must contain 1–80 letters, digits, underscores or hyphens.");
+    }
     const byteLength = (value) => new TextEncoder().encode(value).length;
     if (network.password && (byteLength(network.password) < 8 || byteLength(network.password) > 63)) throw new Error("Wi-Fi password must be 8–63 bytes. Leave it blank to keep the stored password.");
     if (network.name === "") throw new Error("Display name cannot be empty.");
@@ -195,6 +212,7 @@
       if (url.protocol !== "https:" || url.username || url.password || url.hash || /\s/.test(network.endpoint)) throw new Error("Use an HTTPS server URL without user credentials, spaces or fragments.");
     }
     const request = {};
+    if (idChanged) request.device_id = deviceId;
     if (Object.keys(network).length) request.network = network;
     if (profile) request.profile = profile;
     await api("configure", request);

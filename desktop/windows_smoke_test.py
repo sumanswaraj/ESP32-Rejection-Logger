@@ -123,6 +123,7 @@ def smoke_test(root: Path) -> dict:
         code, headers, body = request("/?" + parsed.query)
         assert code == 200, "Authenticated page did not load."
         assert b"{{APP_TOKEN}}" not in body and token.encode() in body, "Page session was not populated."
+        assert b'id="logger-id"' in body and b'id="logger-id-help"' in body, "Logger ID controls are missing."
         assert "frame-ancestors 'none'" in headers.get("Content-Security-Policy", ""), "Page CSP is missing."
         assert headers.get("Cache-Control") == "no-store", "Page can be cached."
         assert request("/")[0] == 403, "Page accepted a missing session."
@@ -202,7 +203,8 @@ def stamp_package(root: Path, report: dict) -> Path:
     validation = (
         "VALIDATION LIMITS\n"
         "All 15 real CI-built firmware bundles pass the original validator. The Python\n"
-        "bridge and HTTP adapter pass 20 tests without a connected ESP32. This EXE\n"
+        "serial transport, Logger ID and bridge tests pass without a connected ESP32.\n"
+        "This EXE\n"
         "and its bundled Python were executed on a native Windows CI runner. Startup,\n"
         "authenticated HTTP, serial-port enumeration, and clean shutdown passed.\n"
         "No physical ESP32 was detected or flashed. Browser interaction was not tested.\n"

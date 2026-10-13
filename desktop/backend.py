@@ -31,7 +31,7 @@ OPERATIONS = {
     "detect": {"operation", "port"},
     "flash": {"operation", "port", "new_install", "confirm"},
     "info": {"operation", "port", "reset"},
-    "configure": {"operation", "port", "network", "profile", "pins", "touch_active_low"},
+    "configure": {"operation", "port", "network", "profile", "pins", "touch_active_low", "device_id"},
     "initialize_storage": {"operation", "port", "confirm"},
 }
 
@@ -191,6 +191,8 @@ def dispatch(request: dict, log=lambda message: None) -> Any:
                 or device.get("storage_fault") is not True):
             raise qc_core.QCError("Only unformatted devices without capture history can be initialized.")
         return qc_core.serial_request(port, "initialize_storage", {"confirm": "FORMAT EMPTY STORAGE"})
+    if "device_id" in request:
+        qc_core.validate_device_id(request["device_id"])
     network = request.get("network")
     if network is not None:
         if not isinstance(network, dict):
@@ -216,11 +218,14 @@ def dispatch(request: dict, log=lambda message: None) -> Any:
     polarity = request.get("touch_active_low")
     if "touch_active_low" in request and type(polarity) is not bool:
         raise qc_core.QCError("Touch polarity must be true or false.")
-    if not network and pins is None and polarity is None:
-        raise qc_core.QCError("Enter settings or choose a GPIO profile to apply.")
+    if not network and pins is None and polarity is None and "device_id" not in request:
+        raise qc_core.QCError("Enter settings, a Logger ID or choose a GPIO profile to apply.")
     # Missing credential fields are deliberately left missing, preserving the
     # values already on the device. Explicit empty fields still clear values.
-    return qc_core.configure(port, network=network, pins=pins, touch_active_low=polarity)
+    options = {"network": network, "pins": pins, "touch_active_low": polarity}
+    if "device_id" in request:
+        options["device_id"] = request["device_id"]
+    return qc_core.configure(port, **options)
 
 
 def handle(request: Any, log=lambda message: None) -> dict:
