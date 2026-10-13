@@ -105,6 +105,28 @@ static void testWriteFailure(){
     }
   }
 }
+static void testIncompleteSerialization(){
+  for(int successfulConcats:{0,1}){
+    auto settings=seed();JsonDocument draft;settings.toJson(draft);draft["device_id"]="RENAMED_ID";
+    String previous=FakeNVS::strings["config"];
+    FakeStringBuffer::concatsRemaining=successfulConcats;
+    bool saved=settings.saveConfig(draft);
+    FakeStringBuffer::concatsRemaining=-1;
+    expect(!saved,"Empty or partial Arduino String serialization must not report a successful save");
+    expect(FakeNVS::writes.empty(),"Incomplete serialized config must be rejected before touching NVS");
+    expect(FakeNVS::strings["config"]==previous,"Incomplete serialization must preserve the previous config");
+    expect(settings.configurationFault,"Serialization failure must latch the existing capture fault");
+  }
+  class FailingAllocator:public ArduinoJson::Allocator {
+    void* allocate(size_t)override{return nullptr;}
+    void deallocate(void*)override{}
+    void* reallocate(void*,size_t)override{return nullptr;}
+  } allocator;
+  auto settings=seed();JsonDocument overflowed(&allocator);settings.toJson(overflowed);
+  expect(overflowed.overflowed(),"A real ArduinoJson allocation failure must overflow its document");
+  expect(!settings.saveConfig(overflowed) && FakeNVS::writes.empty(),"Overflowed document must never write an incomplete config");
+  expect(settings.configurationFault,"Document allocation failure must latch the capture fault");
+}
 static void testBootMigrationAndMalformedConfig(){
   auto settings=seed(8);JsonDocument oldConfig;settings.toJson(oldConfig);oldConfig.remove("device_id");
   String raw;serializeJson(oldConfig,raw);FakeNVS::strings["config"]=raw;DeviceSettings legacy;
@@ -144,7 +166,7 @@ static void testInfoAndOldConfiguration(){
   DeviceSettings repinned;expect(repinned.begin() && repinned.deviceId=="LEGACY_ID" && repinned.sequence==5 && repinned.pins.buzzer==4 && repinned.name=="Updated display name","Pin-only configure must preserve identity, sequence and network settings");
 }
 int main(){
-  try{testRenameAndPersistence();testIdentityLocks();testCombinedConfiguration();testValidation();testWriteFailure();testBootMigrationAndMalformedConfig();testAssignmentRestore();testInfoAndOldConfiguration();}
+  try{testRenameAndPersistence();testIdentityLocks();testCombinedConfiguration();testValidation();testWriteFailure();testIncompleteSerialization();testBootMigrationAndMalformedConfig();testAssignmentRestore();testInfoAndOldConfiguration();}
   catch(const std::exception& error){std::cerr<<"Firmware Logger ID test failed: "<<error.what()<<'\n';return 1;}
   std::cout<<"Passed "<<checks<<" firmware Logger ID assertions against real headers and ArduinoJson; hardware APIs were stubbed.\n";
 }

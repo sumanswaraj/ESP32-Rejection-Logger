@@ -48,8 +48,11 @@ struct DeviceSettings {
     d["ingest_url"]=ingestUrl;d["assignment_url"]=assignmentUrl;d["token"]=token;d["ca"]=ca;
     d["touch_enabled"]=touchEnabled;d["touch_active_low"]=touchActiveLow;
     d["allow_http"]=allowHttp;d["legacy_unbound"]=legacyUnbound;pins.toJson(d["pins"].to<JsonObject>());}
-  bool saveConfig(const JsonDocument& d){String s;serializeJson(d,s);
-    bool saved=s.length()<=3900 && prefs.putString("config",s)==s.length() && prefs.getString("config","")==s;
+  bool saveConfig(const JsonDocument& d){
+    size_t expected=d.overflowed()?0:measureJson(d);String s;
+    size_t written=expected>0 && expected<=3900?serializeJson(d,s):0;
+    bool saved=expected>0 && expected<=3900 && written==expected && s.length()==expected &&
+      prefs.putString("config",s)==expected && prefs.getString("config","")==s;
     // An unverified write may have committed. Pause capture until reboot so
     // old in-memory identity cannot acquire history under a new stored ID.
     if(!saved)configurationFault=true;return saved;}

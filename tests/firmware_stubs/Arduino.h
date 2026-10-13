@@ -6,6 +6,11 @@
 #include <string>
 #include <type_traits>
 
+namespace FakeStringBuffer {
+// -1: normal concatenation; 0: reject every concat; positive: allow that many.
+inline int concatsRemaining=-1;
+inline bool permitConcat(){if(concatsRemaining==0)return false;if(concatsRemaining>0)--concatsRemaining;return true;}
+}
 class String {
   std::string value;
 public:
@@ -17,8 +22,8 @@ public:
   const char* c_str()const{return value.c_str();}
   size_t length()const{return value.size();}
   bool isEmpty()const{return value.empty();}
-  bool concat(const char* text){if(text)value+=text;return true;}
-  bool concat(const char* text,size_t length){value.append(text,length);return true;}
+  bool concat(const char* text){if(!FakeStringBuffer::permitConcat())return false;if(text)value+=text;return true;}
+  bool concat(const char* text,size_t length){if(!FakeStringBuffer::permitConcat())return false;value.append(text,length);return true;}
   auto begin()const{return value.begin();}
   auto end()const{return value.end();}
   bool startsWith(const char* prefix)const{return value.rfind(prefix,0)==0;}
