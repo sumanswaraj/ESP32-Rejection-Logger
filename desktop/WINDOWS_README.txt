@@ -42,12 +42,25 @@ the port running the logger firmware before reading settings.
 If Windows shows no COM port, install the USB driver supplied by the board maker
 (commonly CP210x or CH340). Drivers are not bundled or installed by this app.
 
+IF FLASH VERIFIES BUT SETTINGS DO NOT REPLY
+Close other serial tools and release BOOT. This updated app leaves the BOOT
+control line released on USB/UART adapters when reading settings. Select the
+board's port and try Read device settings. If it still times out, choose Reset
+and read; this restarts a USB/UART board and retains its settings and events.
+For native USB, use the physical RESET button and refresh the port instead.
+The reader reports recognized download mode, crashes, brownouts and invalid
+image headers without printing boot credentials. If it remains silent, capture
+the boot output at 115200 baud. Do not include setup passwords when sharing it.
+A settings timeout alone does not justify erasing or formatting storage.
+
 VALIDATION LIMITS
 All 15 real CI-built firmware bundles pass the original validator. The Python
-bridge and HTTP adapter pass 20 tests without a connected ESP32. Browser controls
+serial transport, Python bridge and HTTP adapter pass 39 tests without a connected ESP32. Browser controls
 pass a JavaScript syntax check; browser interaction testing was unavailable here.
-The EXE is cross-compiled for Windows x64. It has not been executed on a Windows
-computer or used to flash a physical ESP32 in this environment.
+The Windows build workflow executes the packaged EXE and bundled Python helper.
+See app-build-info.json and the included smoke report for the execution checks
+performed on your specific download. Hardware communication is not exercised
+by those cloud checks and still needs verification on the connected board.
 
 This app does not edit Google Sheets or change Apps Script deployment.
 The activity log omits passwords and API keys. App source, dependency licenses,

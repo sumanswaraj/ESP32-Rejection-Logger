@@ -21,6 +21,38 @@ class BackendTests(unittest.TestCase):
                 self.assertIsNone(response["result"])
                 self.assertIsInstance(response["error"], str)
 
+    def test_info_defaults_to_reading_without_reset(self):
+        device = {"chip": "esp32", "pending_events": 3, "sequence": 7}
+        for fields in ({}, {"reset": False}):
+            with self.subTest(fields=fields), \
+                 patch.object(backend.qc_core, "read_device", return_value=device) as read:
+                response = backend.handle({"operation": "info", "port": "COM6", **fields})
+                self.assertTrue(response["ok"])
+                self.assertEqual(response["result"], device)
+                read.assert_called_once_with("COM6")
+
+    def test_info_forwards_explicit_reset_request(self):
+        device = {"chip": "esp32", "storage_fault": True}
+        with patch.object(backend.qc_core, "read_device", return_value=device) as read:
+            response = backend.handle({"operation": "info", "port": "COM6", "reset": True})
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"], device)
+        read.assert_called_once_with("COM6", reset=True)
+
+    def test_info_rejects_non_boolean_reset_before_touching_hardware(self):
+        with patch.object(backend.qc_core, "read_device") as read, \
+             patch.object(backend.qc_core, "detect") as detect, \
+             patch.object(backend.qc_core, "serial_request") as serial:
+            for reset in (None, 0, 1, "false", "true", [], {}):
+                with self.subTest(reset=reset):
+                    response = backend.handle({"operation": "info", "port": "COM6", "reset": reset})
+                    self.assertFalse(response["ok"])
+                    self.assertIsNone(response["result"])
+                    self.assertIsInstance(response["error"], str)
+            read.assert_not_called()
+            detect.assert_not_called()
+            serial.assert_not_called()
+
     def test_flash_defaults_preserve_and_validates_explicit_bundle(self):
         device = {"chip": "esp32s3", "layout_mb": 16, "flash_mb": 16}
         with tempfile.TemporaryDirectory() as temporary:

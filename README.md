@@ -179,3 +179,19 @@ The first run requires internet access. Tools are kept in this folder's
 - Arduino CLI setup action: https://github.com/arduino/setup-arduino-cli
 
 See `VALIDATION.md` for what was checked before this setup package was delivered.
+
+## Flash verifies, but reading settings times out
+
+Use the updated Windows package, close other serial tools and release BOOT.
+The settings reader now leaves the USB/UART adapter's BOOT control line
+released. Native USB CDC ports retain the signaling they need to transmit.
+Select the board's COM port and try **Read device settings**. If a USB/UART
+board still does not reply, choose **Reset and read** to restart it with BOOT
+released; stored settings and events are retained. Native USB ports use the
+board's physical RESET button instead.
+
+The reader identifies known download-mode, crash and power-failure messages
+without displaying boot passwords. A silent response after a verified flash
+still requires checking application startup; it does not mean storage should
+be erased. If the new reader remains silent, capture the 115200-baud boot log
+and remove setup credentials before sharing it.

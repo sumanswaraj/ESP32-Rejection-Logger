@@ -122,7 +122,8 @@ def main() -> None:
     for metadata in (runtime / "Lib/site-packages").glob("*.dist-info/METADATA"):
         fields = dict(line.split(": ", 1) for line in metadata.read_text().splitlines() if line.startswith(("Name: ", "Version: ")))
         dependencies[fields["Name"]] = fields["Version"]
-    app_info = {"source_repository": "https://github.com/sumanswaraj/ESP32-Rejection-Logger", "firmware_source_commit": source_commit,
+    app_source_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    app_info = {"source_repository": "https://github.com/sumanswaraj/ESP32-Rejection-Logger", "app_source_commit": app_source_commit, "firmware_source_commit": source_commit,
                 "firmware_version": info["firmware_version"], "firmware_target_count": 15, "runtime_archive_sha256": digest(args.runtime_archive),
                 "dependencies": dependencies, "windows_target": "Windows 10/11 x64", "hardware_flash_tested": False,
                 "windows_execution_tested": False, "browser_interaction_tested": False}

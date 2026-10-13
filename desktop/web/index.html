@@ -38,7 +38,7 @@
         </section>
         <section class="card" aria-labelledby="setup-heading">
           <div class="section-heading"><span class="step-number">03</span><div><h3 id="setup-heading">Device &amp; connection settings</h3><p>Read the logger after flashing, then enter its Wi-Fi and existing server details.</p></div></div>
-          <div class="action-row read-row"><button id="read-settings" class="button secondary" type="button" disabled>Read device settings</button><span class="muted">After a restart, refresh ports if the COM number changed.</span></div>
+          <div class="action-row read-row"><button id="read-settings" class="button secondary" type="button" disabled>Read device settings</button><button id="reset-read-settings" class="button secondary" type="button" disabled>Reset and read</button><span class="muted">Reset restarts USB/UART boards with BOOT released and retains stored data. For native USB, use the board's RESET button.</span></div>
           <div id="device-settings" hidden>
             <div class="identity-bar"><div><span class="label-small">LOGGER ID</span><strong id="device-id"></strong></div><span id="device-state" class="state-pill"></span></div>
             <form id="settings-form" autocomplete="off">

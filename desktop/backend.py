@@ -30,7 +30,7 @@ OPERATIONS = {
     "ports": {"operation"},
     "detect": {"operation", "port"},
     "flash": {"operation", "port", "new_install", "confirm"},
-    "info": {"operation", "port"},
+    "info": {"operation", "port", "reset"},
     "configure": {"operation", "port", "network", "profile", "pins", "touch_active_low"},
     "initialize_storage": {"operation", "port", "confirm"},
 }
@@ -167,6 +167,11 @@ def dispatch(request: dict, log=lambda message: None) -> Any:
     if operation == "detect":
         return qc_core.detect(port)
     if operation == "info":
+        reset = request.get("reset", False)
+        if type(reset) is not bool:
+            raise qc_core.QCError("Reset must be true or false.")
+        if reset:
+            return qc_core.read_device(port, reset=True)
         return qc_core.read_device(port)
     if operation == "flash":
         new_install = request.get("new_install", False)

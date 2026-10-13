@@ -3,7 +3,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const token = document.querySelector('meta[name="app-token"]').content;
-  const state = { busy: false, detected: null, info: null, infoPort: "", profiles: [], closed: false, started: 0, timer: null, confirmation: null, logs: [] };
+  const state = { busy: false, ports: [], detected: null, info: null, infoPort: "", profiles: [], closed: false, started: 0, timer: null, confirmation: null, logs: [] };
   const port = () => $("port").value;
   const text = (id, value) => { $(id).textContent = value == null || value === "" ? "—" : String(value); };
   function log(message) {
@@ -25,6 +25,8 @@
     });
     $("detect").disabled = unavailable || !port();
     $("read-settings").disabled = unavailable || !port();
+    const selectedPort = state.ports.find((item) => item.port === port());
+    $("reset-read-settings").disabled = unavailable || !port() || (selectedPort && selectedPort.vid === 0x303A);
     $("flash").disabled = unavailable || !state.detected;
     $("new-install").disabled = unavailable || !state.detected;
     $("save-settings").disabled = unavailable || !state.info || state.infoPort !== port();
@@ -87,6 +89,7 @@
   async function refreshPorts() {
     const previous = port();
     const ports = await api("ports");
+    state.ports = ports;
     $("port").replaceChildren(new Option(ports.length ? "Choose a port" : "No serial ports found", ""));
     ports.forEach((item) => $("port").add(new Option(`${item.port}${item.description ? ` · ${item.description}` : ""}`, item.port)));
     if (ports.some((item) => item.port === previous)) $("port").value = previous;
@@ -157,8 +160,8 @@
     refreshProfileOptions();
     $("storage-panel").hidden = !storageEligible();
   }
-  async function readSettings() {
-    displaySettings(await api("info"));
+  async function readSettings(reset = false) {
+    displaySettings(await api("info", reset ? { reset: true } : {}));
     status(storageEligible() ? "Device settings loaded. This fresh logger needs empty storage initialization." : "Device settings loaded. Edit the fields you want to change, then save.");
     log("Device settings loaded. Stored passwords and API keys are not displayed.");
   }
@@ -217,7 +220,8 @@
   $("port").addEventListener("change", () => { clearDevice(); status(port() ? `${port()} selected. Detect the ESP32 or read existing settings.` : "Select your ESP32 serial port."); });
   $("detect").addEventListener("click", () => run("Connecting to ESP32 and detecting its flash size…", detect));
   $("flash").addEventListener("click", () => run("Flashing and verifying matching firmware. Keep USB connected…", () => flash(false)));
-  $("read-settings").addEventListener("click", () => run("Reading device settings over USB…", readSettings));
+  $("read-settings").addEventListener("click", () => run("Reading device settings over USB…", () => readSettings()));
+  $("reset-read-settings").addEventListener("click", () => run("Restarting the board and reading settings. Release BOOT…", () => readSettings(true)));
   $("settings-form").addEventListener("submit", (event) => { event.preventDefault(); if (!state.info || state.infoPort !== port()) return; run("Saving device settings…", saveSettings); });
   $("profile").addEventListener("change", () => { const profile = state.profiles.find((p) => p.id === $("profile").value); text("profile-note", profile ? profile.notes : "Choose a profile only if your physical wiring matches it."); });
   $("new-install").addEventListener("click", () => askConfirmation({ title: "Change the partition layout?", message: "Use this only after a different layout prevented a normal flash. A full flash backup will be created first. Existing settings and queued events may become inaccessible with the new layout.", phrase: "CHANGE PARTITION LAYOUT", action: () => run("Backing up the ESP32 and installing the matching partition layout…", () => flash(true)) }));
