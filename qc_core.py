@@ -347,20 +347,36 @@ def flash(port, new_install=False, bundle=None, log=print):
         return device
 
 @contextlib.contextmanager
-def commissioning_link(port):
+def commissioning_link(port, *, native_usb=None, reset=False):
     try:
         import serial
+        from serial.tools import list_ports
     except ImportError as error:
         raise QCError("Install requirements.txt first") from error
+    if native_usb is None:
+        # Espressif's native USB CDC ports use VID 303A. USB/UART bridges
+        # commonly wire DTR to GPIO0 (BOOT), so they must leave it released.
+        native_usb = any(
+            entry.device.casefold() == str(port).casefold() and entry.vid == 0x303A
+            for entry in list_ports.comports()
+        )
+    if reset and native_usb:
+        raise QCError("Use the board's RESET button for a native USB port, then read settings again")
     with serial.Serial(port=None, baudrate=115200, timeout=0.25, write_timeout=5) as link:
         link.dtr = False
         link.rts = False
         link.port = port
         link.open()
-        # TinyUSB CDC on S2 requires DTR for transmission. Keep RTS inactive
-        # and release DTR before the device's delayed restart.
-        link.dtr = True
         try:
+            if reset:
+                # The user explicitly requested a normal-run reset. GPIO0
+                # remains released while EN is pulsed through RTS.
+                link.rts = True
+                time.sleep(0.1)
+                link.rts = False
+            # TinyUSB CDC on S2 requires DTR for transmission; UART does not.
+            if native_usb:
+                link.dtr = True
             yield link
         finally:
             try:
@@ -369,14 +385,27 @@ def commissioning_link(port):
             except (OSError, serial.SerialException):
                 pass
 
-def serial_request(port, command, payload=None, timeout=18):
+def serial_request(port, command, payload=None, timeout=18, *, native_usb=None, reset=False):
     request = {"protocol": 1, "id": uuid.uuid4().hex, "command": command}
     if payload:
         request.update(payload)
     if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) >= 4096:
         raise QCError("Configuration request is too large")
-    with commissioning_link(port) as link:
+    with commissioning_link(port, native_usb=native_usb, reset=reset) as link:
+        diagnostics = set()
+        def observe_boot(data):
+            text = data.lower()
+            if b"download_boot" in text or b"waiting for download" in text:
+                diagnostics.add("download")
+            if any(marker in text for marker in (b"guru meditation", b"backtrace:", b"stack canary", b"panic'ed")):
+                diagnostics.add("crash")
+            if b"brownout" in text:
+                diagnostics.add("brownout")
+            if b"invalid header" in text:
+                diagnostics.add("image")
         time.sleep(1.8)  # Some USB/UART drivers briefly reset the chip on open.
+        # Retain only diagnostic categories, never raw boot text or passwords.
+        observe_boot(link.read(min(link.in_waiting, 8192)))
         link.reset_input_buffer()
         def exchange(packet):
             encoded = json.dumps(packet, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
@@ -389,6 +418,7 @@ def serial_request(port, command, payload=None, timeout=18):
                 while b"\n" in buffer:
                     line, buffer = buffer.split(b"\n", 1)
                     if not line.startswith(RPC_PREFIX):
+                        observe_boot(line)
                         continue  # Boot text, including setup passwords, is not exposed.
                     try:
                         response = json.loads(line[len(RPC_PREFIX):])
@@ -401,14 +431,22 @@ def serial_request(port, command, payload=None, timeout=18):
                     return response
                 if len(buffer) > 8192:
                     buffer = b""
-            raise QCError("No configuration response. Use the port running the new firmware, close Serial Monitor, and release BOOT. Old pilot firmware needs one upgrade first")
+            if "download" in diagnostics:
+                raise QCError("Device is in ROM download mode. Release BOOT and use Reset and read, or press EN/RESET before reading settings")
+            if "brownout" in diagnostics:
+                raise QCError("Device reported a brownout. Check its power supply and USB connection before reading settings again")
+            if "crash" in diagnostics:
+                raise QCError("Firmware reported a crash during startup. Capture a 115200-baud boot log for diagnosis; do not erase device storage")
+            if "image" in diagnostics:
+                raise QCError("Bootloader reported an invalid image header. Check the matching firmware package and capture a 115200-baud boot log")
+            raise QCError("No configuration response. Close other serial tools, release BOOT, then use Reset and read or press EN/RESET. If it still fails, capture a 115200-baud boot log; verified flashing alone does not confirm application startup")
         if command != "info":
             # Wait for a full boot before sending a longer configuration frame.
             exchange({"protocol": 1, "id": uuid.uuid4().hex, "command": "info"})
         return exchange(request)
 
-def read_device(port):
-    return serial_request(port, "info")["device"]
+def read_device(port, *, native_usb=None, reset=False):
+    return serial_request(port, "info", native_usb=native_usb, reset=reset)["device"]
 
 def configure(port, network=None, pins=None, touch_active_low=None):
     payload = {}
