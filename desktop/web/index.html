@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="app-token" content="{{APP_TOKEN}}">
+  <meta name="color-scheme" content="light">
+  <title>ESP32 Rejection Logger · USB Setup</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand"><span class="brand-icon" aria-hidden="true">QC</span><div><div class="eyebrow">SHOP FLOOR / DEVICE TOOLS</div><h1>ESP32 Rejection Logger</h1></div></div>
+      <button id="close-app" class="button quiet" type="button">Close app</button>
+    </div>
+  </header>
+  <main>
+    <div class="intro">
+      <div><h2>Flash &amp; set up your logger</h2><p>Connect your ESP32 to this Windows PC with a USB data cable.</p></div>
+      <span class="local-badge"><span aria-hidden="true"></span> Local USB utility</span>
+    </div>
+    <div id="status" class="status-bar" role="status" aria-live="polite"><span id="status-dot" class="status-dot" aria-hidden="true"></span><span id="status-text">Looking for USB serial ports…</span><span id="status-time"></span></div>
+    <div class="workspace">
+      <div class="main-column">
+        <section class="card" aria-labelledby="connect-heading">
+          <div class="section-heading"><span class="step-number">01</span><div><h3 id="connect-heading">Connect &amp; detect</h3><p>Choose the USB port for your ESP32.</p></div></div>
+          <div class="port-row"><div class="field"><label for="port">USB serial port</label><select id="port"><option value="">Choose a port</option></select></div><button id="refresh-ports" class="button secondary" type="button">Refresh</button></div>
+          <div class="action-row"><button id="detect" class="button primary" type="button" disabled>Detect ESP32</button><span class="muted">Close Arduino Serial Monitor before continuing.</span></div>
+          <div id="detected-device" class="device-summary" hidden><div class="summary-chip" id="detected-chip"></div><dl><div><dt>Flash size</dt><dd id="detected-flash"></dd></div><div><dt>Firmware layout</dt><dd id="detected-layout"></dd></div><div><dt>Hardware MAC</dt><dd id="detected-mac"></dd></div></dl></div>
+        </section>
+        <section class="card" aria-labelledby="flash-heading">
+          <div class="section-heading"><span class="step-number">02</span><div><h3 id="flash-heading">Install firmware</h3><p>The utility chooses a bundled firmware image for the detected chip and flash size.</p></div></div>
+          <div class="callout"><strong>Existing logger?</strong> Normal flashing preserves its compatible settings and queued rejection events. A different partition layout stops the flash for review.</div>
+          <div class="action-row"><button id="flash" class="button primary" type="button" disabled>Flash matching firmware</button><span id="flash-hint" class="muted">Detect your ESP32 first.</span></div>
+          <details class="advanced"><summary>New installation with a different partition layout</summary><p>Use only when normal flashing reports a different layout. The utility makes a full flash backup first. The new layout can make existing settings or queued events inaccessible.</p><button id="new-install" class="button caution" type="button" disabled>Review new installation…</button></details>
+        </section>
+        <section class="card" aria-labelledby="setup-heading">
+          <div class="section-heading"><span class="step-number">03</span><div><h3 id="setup-heading">Device &amp; connection settings</h3><p>Read the logger after flashing, then enter its Wi-Fi and existing server details.</p></div></div>
+          <div class="action-row read-row"><button id="read-settings" class="button secondary" type="button" disabled>Read device settings</button><span class="muted">After a restart, refresh ports if the COM number changed.</span></div>
+          <div id="device-settings" hidden>
+            <div class="identity-bar"><div><span class="label-small">LOGGER ID</span><strong id="device-id"></strong></div><span id="device-state" class="state-pill"></span></div>
+            <form id="settings-form" autocomplete="off">
+              <div class="form-grid">
+                <div class="field"><label for="name">Display name</label><input id="name" name="name" maxlength="60" placeholder="e.g. Line 1 logger"><span class="field-help">The registered logger ID stays unchanged.</span></div>
+                <div class="field"><label for="ssid">Wi-Fi name (SSID)</label><input id="ssid" name="ssid" maxlength="32" placeholder="Shop floor Wi-Fi" autocapitalize="none" spellcheck="false"></div>
+                <div class="field full"><label for="endpoint">Server URL</label><input id="endpoint" name="endpoint" type="url" maxlength="512" placeholder="https://script.google.com/macros/s/…/exec" autocapitalize="none" spellcheck="false"><span class="field-help">Use your existing deployed Apps Script URL. Machine, part and operator assignments stay managed by Shop Floor Control.</span></div>
+                <div class="field"><label for="password">New Wi-Fi password <span class="optional">optional</span></label><div class="secret-field"><input id="password" name="password" type="password" autocomplete="new-password" maxlength="63" placeholder="Leave blank to keep stored password"><button class="secret-toggle" type="button" data-secret="password" aria-label="Show Wi-Fi password" aria-pressed="false">Show</button></div><span id="password-state" class="field-help">Stored password is never displayed.</span></div>
+                <div class="field"><label for="api-key">New API key <span class="optional">optional</span></label><div class="secret-field"><input id="api-key" name="api_key" type="password" autocomplete="new-password" maxlength="200" placeholder="Leave blank to keep stored API key"><button class="secret-toggle" type="button" data-secret="api-key" aria-label="Show API key" aria-pressed="false">Show</button></div><span id="api-key-state" class="field-help">Stored API key is never displayed.</span></div>
+              </div>
+              <details class="advanced wiring-details"><summary>Board wiring profile &amp; device status</summary><div class="field"><label for="profile">Apply a board wiring profile <span class="optional">optional</span></label><select id="profile"><option value="">Keep the current GPIO mapping</option></select><span id="profile-note" class="field-help">Choose a profile only if your physical wiring matches it.</span></div><div class="detail-grid"><dl id="device-details"></dl><div><span class="label-small">CURRENT GPIO MAPPING</span><pre id="pin-map" class="pin-map"></pre></div></div></details>
+              <div class="action-row"><button id="save-settings" class="button primary" type="submit">Save settings</button><span class="muted">Empty secret fields keep the stored values.</span></div>
+            </form>
+            <div id="storage-panel" class="storage-panel" hidden><strong>Fresh logger storage needs initialization</strong><p>This logger reports a storage fault, zero captured events and no pending events. Initialize empty event storage to finish setup. The utility verifies those conditions again before formatting.</p><button id="initialize-storage" class="button caution" type="button">Review storage initialization…</button></div>
+          </div>
+        </section>
+      </div>
+      <aside class="side-column">
+        <section class="card guidance" aria-labelledby="help-heading"><span class="eyebrow">QUICK GUIDE</span><h3 id="help-heading">A smooth first connection</h3><ol><li>Use a <strong>USB data cable</strong>. Charging-only cables won’t show a COM port.</li><li>Click <strong>Refresh</strong> after connecting or reconnecting the ESP32.</li><li>If detection or flashing cannot connect, hold <strong>BOOT</strong> while starting that action. Release it when connection begins.</li><li>After flashing, release BOOT and press <strong>RESET</strong> if needed, then read settings.</li></ol><p class="guide-footer">This utility flashes and configures the device. It does not edit your Google Sheet or Apps Script deployment.</p></section>
+        <section class="card log-card" aria-labelledby="log-heading"><div class="log-heading"><h3 id="log-heading">Activity</h3><button id="clear-log" class="text-button" type="button">Clear</button></div><pre id="activity-log" class="activity-log" tabindex="0" aria-label="Operation activity log">Ready. Connect an ESP32 to begin.</pre></section>
+      </aside>
+    </div>
+    <footer>ESP32 · ESP32-S2 · ESP32-S3 · ESP32-C3 · ESP32-C6 <span>4 / 8 / 16 MB firmware bundles</span></footer>
+  </main>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message"><div class="dialog-content"><span class="eyebrow">DEVICE STORAGE CHANGE</span><h2 id="confirm-title"></h2><p id="confirm-message"></p><div class="field"><label for="confirm-input">Type <strong id="confirm-phrase"></strong> to continue</label><input id="confirm-input" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="dialog-actions"><button id="confirm-cancel" class="button secondary" type="button">Cancel</button><button id="confirm-proceed" class="button caution" type="button" disabled>Continue</button></div></div></dialog>
+</body>
+</html>

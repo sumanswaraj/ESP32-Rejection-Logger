@@ -1,3 +1,55 @@
+# ESP32 Rejection Logger
+
+## Windows USB flasher
+
+Download the **Windows flasher ZIP** from
+[Releases](https://github.com/sumanswaraj/ESP32-Rejection-Logger/releases/latest).
+It includes the desktop app, Python runtime and all 15 matching firmware bundles.
+Use a **Windows 10 or 11 PC, 64-bit**; this `.exe` cannot run on a phone.
+No Arduino IDE, compiler or separate Python installation is needed to flash.
+
+1. Right-click the downloaded ZIP and choose **Extract All**. Keep the complete
+   extracted folder together; the `.exe` needs its accompanying files.
+2. Connect the ESP32 to the PC with a **USB data cable**.
+3. Double-click **ESP32 Logger Flasher.exe**. The setup screen opens in your
+   browser and communicates with the local app on your PC.
+4. Select the COM port, click **Detect ESP32**, then **Flash matching firmware**.
+   Keep USB connected until verification finishes.
+5. Release BOOT after flashing. Press RESET if needed. If the COM number changes
+   after reboot, click **Refresh** and select the logger's new port.
+6. Click **Read device settings**. Save its Wi-Fi name/password, your existing
+   deployed Apps Script `/exec` server URL, and API key. Blank password and API
+   key fields keep the stored values. Read settings again after reboot to verify.
+7. For a fresh logger, register the displayed Logger ID in your existing Shop
+   Floor Control system. Initialize empty storage only when the app offers the
+   guarded action for a logger with no captured or pending events.
+8. Click **Close app** when finished, then close the browser tab.
+
+Normal upgrades preserve the existing logger ID, compatible stored settings and
+queued rejection events. A different partition layout stops the flash. The
+optional **New installation** action creates a full flash backup before a
+confirmed layout change; existing data can become inaccessible afterward.
+Leave the GPIO mapping unchanged unless your physical wiring matches the
+selected board profile. Use a board-maker USB driver if Windows shows no port.
+
+This app does not edit the Google Sheet or change its Apps Script deployment.
+It uses the existing firmware and existing server URL. The original Shop Floor
+Control login, QR assignment and Sheet workflow still require review of the
+bound Apps Script; this flasher does not establish that those features are
+complete or tested.
+
+All 15 firmware bundles were validated, and 20 Python/HTTP adapter tests passed.
+The EXE was cross-compiled for Windows x64. It has not yet been executed on a
+Windows PC or used with a physical ESP32 here; browser interaction testing was
+unavailable. JavaScript syntax checks passed. A Windows build/startup workflow
+provides additional validation without substituting for a real USB flash test.
+
+Run [Build and test Windows flasher](../../actions/workflows/build-windows-flasher.yml) in Actions to build and test the actual Windows executable.
+
+See [the complete Windows instructions](desktop/WINDOWS_README.txt) for connection
+help, backup location and validation limits. Firmware build instructions from
+the existing project follow below.
+
 # ESP32 logger: build all firmware on GitHub
 
 This package adds a **Build All Firmware** button. GitHub downloads the saved

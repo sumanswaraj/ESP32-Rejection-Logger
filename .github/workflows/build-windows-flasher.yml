@@ -1,0 +1,135 @@
+name: Build and test Windows flasher
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FIRMWARE_RELEASE: windows-flasher-v1.0.0
+  FIRMWARE_ZIP: ESP32_Firmware_2.1.0-multiboard-pilot.zip
+  FIRMWARE_SHA256: ae0a54d4521deac2e5621aa58e815781f41de7f79192d95ea5b15f77ffe910d9
+  PYTHON_EMBED_SHA256: 97dae5274cc54867065e8d5a3226e48c35017ed332a0fdb0e27d5b5821961297
+  APP_NAME: ESP32-Logger-Flasher-Windows-x64
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Preserve fingerprinted source line endings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.16'
+          architecture: x64
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.2'
+          cache: false
+
+      - name: Download and verify the existing firmware release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $download = Join-Path $env:RUNNER_TEMP 'logger-firmware'
+          New-Item -ItemType Directory -Force -Path $download | Out-Null
+          gh release download $env:FIRMWARE_RELEASE --repo $env:GITHUB_REPOSITORY --pattern $env:FIRMWARE_ZIP --dir $download
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download the original firmware ZIP from this repository release.' }
+          $archive = Join-Path $download $env:FIRMWARE_ZIP
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:FIRMWARE_SHA256) {
+            throw 'Original firmware ZIP checksum does not match the verified build.'
+          }
+          $firmware = Join-Path $download 'extracted'
+          Expand-Archive -LiteralPath $archive -DestinationPath $firmware
+          "FIRMWARE_ROOT=$firmware" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Validate all 15 firmware bundles and source fingerprints
+        run: |
+          @'
+          import json
+          import os
+          from pathlib import Path
+          import qc_core
+          from desktop.package_windows import verify_firmware_source
+          root = Path(os.environ['FIRMWARE_ROOT'])
+          info = json.loads((root / 'build_info.json').read_text())
+          assert info['source_commit'] == '740eb1c55a86e38200005f63a23681766942bd1b'
+          assert info['target_count'] == 15
+          verify_firmware_source(info)
+          count = 0
+          for chip in qc_core.CHIPS:
+              for mb in qc_core.FLASH_MB:
+                  qc_core.validate_bundle(root / 'firmware' / f'{chip}-{mb}MB', chip, mb)
+                  count += 1
+          assert count == 15
+          print('Verified all 15 genuine firmware targets and matching source fingerprints.')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Firmware verification failed.' }
+
+      - name: Run Python bridge and Go server tests
+        run: |
+          python -m unittest discover -s desktop -p test_backend.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Python bridge tests failed.' }
+          Push-Location desktop
+          try {
+            go test -count=1 -v ./...
+            if ($LASTEXITCODE -ne 0) { throw 'Go server tests failed.' }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Prepare the embedded Python runtime and pinned dependencies
+        run: |
+          $runtimeArchive = Join-Path $env:RUNNER_TEMP 'python-3.13.16-embed-amd64.zip'
+          Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.13.16/python-3.13.16-embed-amd64.zip' -OutFile $runtimeArchive
+          if ((Get-FileHash -LiteralPath $runtimeArchive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:PYTHON_EMBED_SHA256) {
+            throw 'Embedded Python download checksum does not match the verified runtime.'
+          }
+          $sitePackages = Join-Path $env:GITHUB_WORKSPACE "dist/$env:APP_NAME/runtime/Lib/site-packages"
+          New-Item -ItemType Directory -Force -Path $sitePackages | Out-Null
+          python -m pip install --disable-pip-version-check --no-compile --requirement desktop/requirements-windows.txt --target $sitePackages
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Windows runtime dependencies could not be installed.' }
+          "RUNTIME_ARCHIVE=$runtimeArchive" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build the complete portable Windows ZIP
+        run: |
+          $go = (Get-Command go).Source
+          python desktop/package_windows.py --runtime-archive $env:RUNTIME_ARCHIVE --firmware-root $env:FIRMWARE_ROOT --go $go
+          if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed.' }
+
+      - name: Run the actual EXE and bundled helper on native Windows
+        run: |
+          $app = Join-Path $env:GITHUB_WORKSPACE "dist/$env:APP_NAME"
+          python desktop/windows_smoke_test.py --app-root $app --report dist/windows-smoke-report.json --stamp-package
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows executable smoke test failed.' }
+          @'
+          Native Windows executable and bundled Python smoke test passed.
+
+          Checked page/assets, GPIO profiles, serial enumeration, invalid sessions,
+          foreign Origin rejection, embedded esptool 5.1.0 imports, and shutdown.
+          No physical ESP32 was detected or flashed. Browser interaction was not
+          tested. The ZIP contains the exact tested executables, the native smoke
+          report, updated Windows execution metadata, and refreshed file checksums.
+          '@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+
+      - name: Upload the ZIP, checksum, and native smoke report
+        uses: actions/upload-artifact@v6
+        with:
+          name: ESP32-Logger-Flasher-Windows-x64-${{ github.run_number }}
+          path: |
+            dist/ESP32-Logger-Flasher-Windows-x64.zip
+            dist/ESP32-Logger-Flasher-Windows-x64.zip.sha256
+            dist/windows-smoke-report.json
+          if-no-files-found: error
+          retention-days: 30
