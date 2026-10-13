@@ -7,7 +7,6 @@ permissions:
   contents: read
 
 env:
-  FIRMWARE_RELEASE: windows-flasher-v1.0.0
   FIRMWARE_ZIP: ESP32_Firmware_2.1.0-multiboard-pilot.zip
   FIRMWARE_SHA256: ae0a54d4521deac2e5621aa58e815781f41de7f79192d95ea5b15f77ffe910d9
   PYTHON_EMBED_SHA256: 97dae5274cc54867065e8d5a3226e48c35017ed332a0fdb0e27d5b5821961297
@@ -38,15 +37,16 @@ jobs:
           go-version: '1.27.2'
           cache: false
 
-      - name: Download and verify the existing firmware release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify the bundled firmware download
         run: |
           $download = Join-Path $env:RUNNER_TEMP 'logger-firmware'
           New-Item -ItemType Directory -Force -Path $download | Out-Null
-          gh release download $env:FIRMWARE_RELEASE --repo $env:GITHUB_REPOSITORY --pattern $env:FIRMWARE_ZIP --dir $download
-          if ($LASTEXITCODE -ne 0) { throw 'Could not download the original firmware ZIP from this repository release.' }
+          $bundled = Join-Path $env:GITHUB_WORKSPACE "downloads/$env:FIRMWARE_ZIP"
+          if (-not (Test-Path -LiteralPath $bundled -PathType Leaf)) {
+            throw 'The original firmware ZIP is missing from the repository downloads folder.'
+          }
           $archive = Join-Path $download $env:FIRMWARE_ZIP
+          Copy-Item -LiteralPath $bundled -Destination $archive
           if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:FIRMWARE_SHA256) {
             throw 'Original firmware ZIP checksum does not match the verified build.'
           }

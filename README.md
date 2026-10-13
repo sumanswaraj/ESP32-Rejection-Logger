@@ -3,7 +3,8 @@
 ## Windows USB flasher
 
 Download the **Windows flasher ZIP** from
-[Releases](https://github.com/sumanswaraj/ESP32-Rejection-Logger/releases/latest).
+[Download Windows flasher](https://github.com/sumanswaraj/ESP32-Rejection-Logger/raw/refs/heads/main/downloads/ESP32-Logger-Flasher-Windows-x64.zip).
+The same download is linked from [Releases](https://github.com/sumanswaraj/ESP32-Rejection-Logger/releases/latest).
 It includes the desktop app, Python runtime and all 15 matching firmware bundles.
 Use a **Windows 10 or 11 PC, 64-bit**; this `.exe` cannot run on a phone.
 No Arduino IDE, compiler or separate Python installation is needed to flash.
